@@ -4,61 +4,61 @@
 
 ## When is GOTO justified in PL/SQL?
 
-Rarely, and only where structured control flow would be worse. The cases I
-would accept are:
+Rarely. It is only reasonable where structured control flow would be worse,
+and in practice that means three cases:
 
-- Jumping forward to a single clean-up or exit label from several different
-  error checks, where the alternative is deeply nested `IF` statements.
-- Breaking out of nested loops at once. PL/SQL's `EXIT` leaves only the loop
-  it is in, so without labelled loops a `GOTO` to a label after the outermost
-  loop is shorter than carrying a flag variable.
-- Jumping from an exception handler back to a label in an enclosing block to
-  retry or continue processing.
+- Jumping forward to a single clean-up or exit label when several different
+  checks all have to end the same way. The alternative is deeply nested `IF`
+  statements.
+- Leaving several nested loops at once. `EXIT` only leaves the loop it is in,
+  so a jump to a label after the outermost loop is simpler than carrying a
+  flag variable through each level.
+- Jumping from an exception handler to a label in an enclosing block, to
+  continue processing after an error.
 
-In every one of these the jump goes *forward* and *out*. A backward `GOTO`
-that builds a loop by hand, like the lecture's `<<start_loop>>` example, is
+In all three the jump goes *forward* and *outward*. A backward `GOTO` that
+builds a loop by hand, like the `<<start_loop>>` example in the lecture, is
 never justified now that `LOOP`, `WHILE` and `FOR` exist.
 
 ## How can you replace GOTO with structured control flow?
 
-Each `GOTO` pattern has a direct replacement:
+Each pattern has a direct replacement:
 
 | GOTO pattern | Structured replacement |
 |---|---|
-| Jump to one of several labels that each print a result | `IF / ELSIF / ELSE`, or a `CASE` expression assigned to a variable |
-| Backward jump to repeat a section | `WHILE` loop, or `FOR` when the number of iterations is known |
+| Jump to one of several labels that each print a result | `IF / ELSIF / ELSE`, or a `CASE` expression |
+| Backward jump to repeat a section | `WHILE`, or `FOR` when the count is known |
 | Forward jump to skip the rest of a loop body | `CONTINUE` |
 | Forward jump to leave a loop early | `EXIT WHEN` |
-| Jump to an error label on a failed check | declare an exception, `RAISE` it, handle it in the `EXCEPTION` block |
+| Jump to an error label after a failed check | declare an exception, `RAISE` it, handle it in the `EXCEPTION` block |
 
-A4 shows the first of these: the three labels of A2 become three branches of
+A4 shows the first of these. The three labels in A2 become three branches of
 one `IF`, and then a single `CASE` expression. The structured version is
-shorter, every branch has one entry and one exit, and the reader does not have
-to trace jumps to work out which lines can run.
+shorter, each branch has one entry and one exit, and the reader does not have
+to follow jumps to see which lines can run.
 
 ## What happens if a GOTO jumps over an EXCEPTION block?
 
-It cannot. The executable section and the exception section of a block are two
+It cannot. The executable section and the exception section of a block are
 separate regions, and a `GOTO` cannot cross between them:
 
 - A `GOTO` in the executable section cannot target a label inside that block's
-  own `EXCEPTION` section. The only way into an exception handler is for an
-  exception to be raised.
+  own `EXCEPTION` section. The only way into a handler is for an exception to
+  be raised.
 - A `GOTO` inside an exception handler cannot jump back into the executable
-  section of the same block. It may only target a label in an *enclosing*
-  block.
+  section of the same block. It may only target a label in an enclosing block.
 
-Either attempt is rejected at compile time as an illegal `GOTO`, not at run
-time. The practical consequence is that `GOTO` cannot be used to skip error
-handling or to resume a block after an error. Control reaches a handler only
-through a raised exception, and once the handler finishes, the block ends.
+Both attempts are rejected when the block is compiled, not while it runs. The
+practical result is that `GOTO` cannot be used to skip error handling or to
+restart a block after an error. Control reaches a handler only through a
+raised exception, and when the handler finishes, the block ends.
 
-## What I took away
+## What I learned
 
-Coming from Java and C++, the constructs that actually needed attention were
-not `GOTO` but the small PL/SQL-specific rules around it: a label has to stand
-in front of an executable statement, which is why `NULL;` exists; and a
-function that compiles is not a function that works, because a missing
-`RETURN` on one path only shows up at run time as `ORA-06503`. Writing B4
-taught me the most, because `SELECT INTO` raising `NO_DATA_FOUND` instead of
-returning nothing is the opposite of how a query behaves in plain SQL.
+The difficult part was not `GOTO` itself but the smaller PL/SQL rules around
+it. A label must come before a real statement, which is why `NULL;` exists. A
+function that compiles is not necessarily a function that works, because a
+missing `RETURN` on one path only appears at run time as `ORA-06503`. Writing
+B4 taught me the most: `SELECT INTO` raises `NO_DATA_FOUND` instead of
+returning no rows, which is the opposite of how a query behaves in plain SQL,
+and it is the reason that function needs an `EXCEPTION` block.
