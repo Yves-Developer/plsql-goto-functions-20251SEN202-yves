@@ -1,0 +1,8 @@
+# macOS
+.DS_Store
+.AppleDouble
+._*
+
+# SQL*Plus / SQL Developer
+*.lst
+*.log
